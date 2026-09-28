@@ -1,0 +1,149 @@
+<!doctype html>
+<html lang="en">
+<head>
+	<meta charset="utf-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<title>Fact-check desk</title>
+	<link rel="preconnect" href="https://fonts.googleapis.com">
+	<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+	<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Newsreader:opsz,wght@6..72,500;6..72,600&display=swap" rel="stylesheet">
+	<link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+	<header class="topbar">
+		<a class="brand" href="{{ url_for('home') }}" aria-label="Fact-check desk home">
+			<span class="brand-mark">FC</span>
+			<span>FIELDNOTE <i>/</i> FACT CHECK</span>
+		</a>
+		<span class="topbar-note">INDEPENDENT EVIDENCE REVIEW</span>
+	</header>
+
+	<main class="page-shell">
+		<section class="intro" aria-labelledby="page-title">
+			<div>
+				<p class="eyebrow">MEDIA VERIFICATION WORKSPACE <span>·</span> 01</p>
+				<h1 id="page-title">Check the claim.<br><em>Follow the evidence.</em></h1>
+			</div>
+			<p class="intro-note">Review a statement or video in English or Hindi. Findings are provisional and include source links for independent review.</p>
+		</section>
+
+		<section class="analysis-section" aria-labelledby="analysis-title">
+			<div class="section-heading">
+				<div>
+					<p class="eyebrow">NEW REVIEW</p>
+					<h2 id="analysis-title">Add material to check</h2>
+				</div>
+				<span class="section-index">01 / INPUT</span>
+			</div>
+
+			{% if error %}
+			<div class="notice notice-error" role="alert">{{ error }}</div>
+			{% endif %}
+
+			<form action="{{ url_for('analyze') }}" method="post" enctype="multipart/form-data" class="review-form">
+				<label class="field-label" for="claim-text">Claim or transcript <span>OPTIONAL WHEN ADDING A VIDEO</span></label>
+				<textarea id="claim-text" name="claim_text" rows="4" placeholder="Paste a statement, quote, or transcript excerpt…">{{ claim_text or '' }}</textarea>
+
+				<div class="source-grid">
+					<div class="field-group">
+						<label class="field-label" for="video-url">Video URL</label>
+						<input id="video-url" name="video_url" type="url" inputmode="url" placeholder="https://…" value="{{ video_url or '' }}">
+					</div>
+					<div class="field-group">
+						<label class="field-label" for="video-file">Or upload video <span>150 MB MAX</span></label>
+						<input id="video-file" name="video" type="file" accept="video/mp4,video/quicktime,video/x-matroska,video/webm,video/x-msvideo">
+					</div>
+				</div>
+
+				<div class="form-footer">
+					<label class="language-control" for="language">REPORT LANGUAGE
+						<select id="language" name="language">
+							<option value="en" {% if language != 'hi' %}selected{% endif %}>English</option>
+							<option value="hi" {% if language == 'hi' %}selected{% endif %}>हिन्दी</option>
+						</select>
+					</label>
+					<button class="submit-button" type="submit"><span>Run evidence review</span><span aria-hidden="true">↗</span></button>
+				</div>
+			</form>
+			<p class="privacy-note">Uploaded video is processed for this review and removed afterward. URL downloads depend on the source platform.</p>
+		</section>
+
+		{% if report %}
+		<section class="report-section" aria-labelledby="report-title">
+			<div class="section-heading report-heading">
+				<div>
+					<p class="eyebrow">REVIEW OUTPUT</p>
+					<h2 id="report-title">Evidence report</h2>
+				</div>
+				<a class="download-link" href="{{ report_url }}"><span aria-hidden="true">↓</span> Download PDF</a>
+			</div>
+
+			<div class="summary-band">
+				<div class="summary-symbol" aria-hidden="true">●</div>
+				<div>
+					<p class="eyebrow">SUMMARY</p>
+					<p class="summary-text">{{ report.summary }}</p>
+				</div>
+				<div class="summary-metric"><strong>{{ report.trusted_source_count }}</strong><span>TRUSTED SOURCE LINKS</span></div>
+			</div>
+
+			{% if not report.ai_used %}
+			<div class="notice notice-caution">AI review is unavailable. Claims are marked insufficient rather than treated as verified.</div>
+			{% endif %}
+
+			<div class="claims-list">
+				{% for item in report.claims %}
+				<article class="claim-result">
+					<div class="claim-main">
+						<div class="claim-topline"><span class="claim-number">CLAIM {{ '%02d'|format(loop.index) }}</span><span class="verdict">{{ item.verdict }}</span></div>
+						<h3>{{ item.claim }}</h3>
+						<p class="explanation">{{ item.explanation }}</p>
+						<div class="confidence-row"><span>MODEL CONFIDENCE</span><strong>{{ item.confidence }}%</strong></div>
+						<div class="confidence-track" role="meter" aria-label="Model confidence" aria-valuemin="0" aria-valuemax="100" aria-valuenow="{{ item.confidence }}"><span style="width: {{ item.confidence }}%"></span></div>
+					</div>
+					<div class="evidence-column">
+						<h4>Evidence links <span>{{ item.evidence|length }}</span></h4>
+						{% if item.evidence %}
+							{% for source in item.evidence %}
+							<a class="evidence-link" href="{{ source.url }}" target="_blank" rel="noopener noreferrer">
+								<span class="evidence-source">{{ source.source }}{% if source.trusted %}<b>TRUSTED</b>{% endif %}</span>
+								<strong>{{ source.title }}</strong>
+								{% if source.snippet %}<span class="evidence-snippet">{{ source.snippet }}</span>{% endif %}
+							</a>
+							{% endfor %}
+						{% else %}
+							<p class="empty-evidence">No search results were returned for this claim.</p>
+						{% endif %}
+					</div>
+				</article>
+				{% endfor %}
+			</div>
+
+			{% if report.reverse_matches %}
+			<section class="reverse-matches" aria-labelledby="reverse-title">
+				<div class="reverse-heading"><h3 id="reverse-title">Similar images found online</h3><span>FRAME MATCHES</span></div>
+				{% for match in report.reverse_matches %}
+				<a href="{{ match.url }}" target="_blank" rel="noopener noreferrer"><span>{{ match.source }}</span><strong>{{ match.title }}</strong></a>
+				{% endfor %}
+			</section>
+			{% endif %}
+
+			{% if report.transcript or report.frame_text %}
+			<details class="extracted-material">
+				<summary>Show extracted media text <span>TRANSCRIPT + OCR</span></summary>
+				{% if report.transcript %}<div><h4>Speech transcript</h4><p>{{ report.transcript }}</p></div>{% endif %}
+				{% if report.frame_text %}<div><h4>Frame OCR</h4>{% for text in report.frame_text %}<p>{{ text }}</p>{% endfor %}</div>{% endif %}
+			</details>
+			{% endif %}
+
+			{% if report.warnings %}
+			<div class="limitations"><p class="eyebrow">LIMITATIONS</p>{% for warning in report.warnings %}<p>{{ warning }}</p>{% endfor %}</div>
+			{% endif %}
+			<p class="disclaimer">Automated confidence is not a probability of truth. Confirm context and source material before sharing a conclusion.</p>
+		</section>
+		{% endif %}
+	</main>
+
+	<footer class="footer"><span>FIELDNOTE / FACT CHECK</span><span>Claims are assessed against available evidence, not labels.</span></footer>
+</body>
+</html>
