@@ -1,4 +1,5 @@
 Flask
+gunicorn
 crewai
 crewai-tools
 python-dotenv
